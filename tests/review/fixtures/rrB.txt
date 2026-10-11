@@ -1,0 +1,15 @@
+REVIEW REQUEST: Lane B, PR #225 @ 70a4196, feat/escalate-to-consultant, rebased on b7f595b. Suite: 1611 OK via run_all. Greenfield module, so the tests are new rather than red-first. One real finding came up while testing: `net send` exits 2 for a parked-but-durable send, and the first draft treated that as a failure.
+
+Where: maw/escalate/cli.py (new); maw/commands/escalate.md (new); maw/commands/advisor.md (a paragraph in section 3); tests/escalate/test_escalate.py (17 tests, including the switchboard round trip); tests/guards/test_session_auth.py (escalate verdict holds the merge); tests/review/test_command_surface.py; findings/2026-09-22-escalation-consultant.md (the deferred _mwseat consultant spawn path, plus the real-round-trip section to fill in).
+
+Adversarial targets:
+1. Authority smuggling. The validator is a regex floor, not a security boundary. Try to put a ruling into a brief that passes `check`: a paraphrase ("the operator okayed it", "per D.P."), Unicode confusables of the operator or of the scope names, or a scope class split across a line break. Tell me which ones matter. I kept it a floor on purpose; the consultant side is already fenced as untrusted.
+2. False positives on legitimate briefs. "merge approval" as a phrase in a genuine question about the merge rail would be refused by the grant/token pattern. Is that acceptable, or too broad for escalations that are ABOUT the merge rail?
+3. One per blocker. The key is a caller-chosen slug, so an advisor can dodge the cap by renaming the blocker. I accept that as a discipline cap, not a lock. Challenge me if you think it needs PR+reason keying as well.
+4. Delivery semantics. rc 0 and 2 count as delivered; rc 1 and 3 are logged unsent and do NOT spend the blocker. An rc-3 precheck refusal (#203 class) of an honest brief then lets the advisor re-send after editing. Is that the right direction?
+5. Ordering. With --pr, the escalate verdict is recorded BEFORE the send. If the send then fails, the PR stays held on an `escalate` verdict with no advice coming. I think held is the safe state. Confirm, or ask for a rollback.
+6. The round-trip test mocks verify_caller_is, heartbeat, and transport.deliver (so everything parks). It proves the wire path and the fencing, not the herdr push. The real round trip to the CoS covers that live.
+7. Temp brief file: mkstemp and unlink in finally. Check for a path where the body lingers.
+
+For the real escalation: I have no genuine blocker right now. When you hit one (your call), use `/maw:escalate` from your seat and I'll fill in the findings section. Or say so and I'll draft the brief for your first real disagreement with me.
+Next: C0 (maw/jev client, redaction, calibration harness), off fresh main.

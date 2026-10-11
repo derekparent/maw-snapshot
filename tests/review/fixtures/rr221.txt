@@ -1,0 +1,13 @@
+REVIEW REQUEST: #206 papercut 1, PR #221, branch fix/audit-merge-rail-refusals @ 5761f6d, off fresh main. Suite: 1568 OK via run_all (1559 plus 9). 7 of the 9 new tests are red against the old session_auth.py.
+
+Where: maw/guards/session_auth.py (merge_pr and merge_local renamed to _merge_pr_body and _merge_local_body; new public wrappers; _audit_refusal and _TAG_RE; import re). Tests: TestMergeWrapper (4 new) and TestMergeLocalRefusalsAreAudited (5 new).
+
+This is a merge-rail change, so review it at the gate depth.
+Adversarial targets:
+1. Behavior preservation. The wrappers must change nothing but the audit. One ordering change: the slug is resolved (gh/git) BEFORE the unknown-method check in merge_pr, where before the method check came first. Confirm nothing depends on that order, e.g. a runner mock counting calls or a refusal that previously avoided a gh call.
+2. Audit-write failure must not change the gate's result. audit() swallows OSError, so a failed write cannot flip a refusal into a pass. Verify.
+3. main() --pr merge path: main calls merge_pr, so a refused merge from the CLI now writes exactly one merge-refused record and no duplicate "check" record. Verify there is no double audit.
+4. The bound heuristic reads the LAST line's first [tag]. Can an attacker-influenced string, such as a PR title in the base-not-default detail, inject a misleading [tag] earlier on that line? The title sits AFTER "MERGE AUTH DENIED [base-not-default]", so the first match is the real bound. Try to break that.
+5. dry_run refusals are audited with dry_run: true. Is that noise you want, or should a dry run stay silent?
+6. The `detail` field copies the refusal text into the audit log. Can any refusal line carry a secret? I don't think so (PR titles, branch names, git stderr), but git stderr is the loosest of those.
+Still queued: #206 papercut 2 (force-push in dirty-destructive), then Lane A.

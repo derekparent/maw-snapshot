@@ -1,0 +1,49 @@
+#!/bin/bash
+# pre-push — default-deny gate for pushes to the protected branch.
+# Per PRD-claude-autonomy.md §11.4 (v0.5: default-deny inversion).
+#
+# Polarity (inverted from earlier denylist model):
+#   - MAW_AGENT=1 → ALWAYS blocked (agents never push to protected, period).
+#   - MAW_HUMAN=1 → allowed (set by the project's launch alias).
+#   - Neither set → blocked (cron-spawned sessions, sub-shells, anything
+#     that isn't an operator-launched interactive session).
+#
+# This closes the gap that an MAW_AGENT-only check would leave open:
+# cron-fired sessions inherit the same Claude Code credentials but don't
+# set MAW_AGENT. Default-deny via MAW_HUMAN inversion makes the contract
+# structural rather than prosaic — no env marker, no push to protected.
+#
+# Pushes to non-protected branches (dev, feature/*, fix/*) are unaffected.
+# Defense-in-depth: combines with validate-launch.py's push_target enum
+# and settings.json deny rules. Permission grammar is Bash(verb:*) — shell
+# globs (e.g. Bash(git push * main*)) do NOT work, so this hook is the
+# branch-protection layer.
+
+set -u
+
+remote="${1:-}"
+url="${2:-}"
+
+# stdin: <local_ref> <local_sha> <remote_ref> <remote_sha>
+while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/{{deploy_branch}}|refs/heads/master)
+      branch="${remote_ref#refs/heads/}"
+      # Agent precedence: MAW_AGENT=1 always blocks, even if MAW_HUMAN=1
+      # also happens to be set (defense against accidental env bleed).
+      if [ "${MAW_AGENT:-0}" = "1" ]; then
+        echo "pre-push: BLOCKED — MAW_AGENT=1 must not push to '$branch'." >&2
+        echo "pre-push: agents push to dev only; protected pushes are human-only." >&2
+        exit 1
+      fi
+      if [ "${MAW_HUMAN:-0}" != "1" ]; then
+        echo "pre-push: BLOCKED — MAW_HUMAN=1 not set; default-deny on '$branch'." >&2
+        echo "pre-push: launch via the '{{alias_suggestion}}' alias (which sets MAW_HUMAN=1)," >&2
+        echo "pre-push: or push to a non-protected branch (dev, feature/*, fix/*)." >&2
+        exit 1
+      fi
+      ;;
+  esac
+done
+
+exit 0

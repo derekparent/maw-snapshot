@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+env/
+.venv/
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.json
+htmlcov/
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Claude Code runtime artifacts
+.claude/.runtime/
+.maw/.runtime/
+.maw-lead-state.json
+.playwright-mcp/
+
+# Plugin development scratch
+scratch/
+*.scratch.md
+findings/screenshots/
+findings/.tmp/
+
+# Phase 0 spike outputs (committed only after spike completes; .scratch is for in-progress)
+*.spike-scratch
+
+# Codex compatibility — AGENTS.md is codex's variant of CLAUDE.md (auto-created when
+# codex runs in a repo without it). CLAUDE.md is the canonical agent doc for this repo;
+# we don't maintain a parallel AGENTS.md. Codex can read CLAUDE.md fine, and may re-create
+# AGENTS.md locally on its next run — gitignore prevents that copy from polluting the repo.
+AGENTS.md
+.maw/

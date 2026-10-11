@@ -1,0 +1,59 @@
+{
+  "description": "maw plugin hooks \u2014 switchboard auto-registration + capability probe gate + tools-awareness (computer-use eyes, Xcode MCP in iOS repos) + supervision-watchdog arming (pair-sweep, #149/F10) + substrate-freshness warning (#201) on session start; heartbeat on every user prompt; destructive-op guard (base-branch deletion w/ open child PRs, destructive-on-dirty-tree) before every Bash",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/net-register.sh\"",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/probe-capabilities.sh\"",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/tools-awareness.sh\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/watchdog-arm.sh\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/substrate-drift.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/net-heartbeat.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/destructive-guard.py\"",
+            "timeout": 12
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+# --- maw substrate (added by /maw:init) ---
+.maw/*
+!.maw/config.yaml
+.claude/maw/.attic/
+.claude/.runtime/
+# --- end maw substrate ---

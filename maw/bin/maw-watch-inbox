@@ -1,0 +1,96 @@
+#!/bin/sh
+# Inbound watcher for a bridge seat: ONE line per new batch of waiting turns,
+# covering the durable bridge AND the wire (cos ANSWERs, parked sends).
+# usage: maw-watch-inbox <seat-name> [--once] [--interval SECS] [--reannounce POLLS]
+#
+# Wrap it in Monitor, or run it with --once as a background one-shot (exits on
+# the first event, so the harness re-invokes you). See maw/docs/watch-recipes.md.
+#
+# Never pipe this through grep/awk/head: a pipe buffers and silently delays
+# events (#347). It already prints one line per event.
+#
+# Edge rules: announce when a turn id waits that did not wait at the last poll
+# (so a second turn landing behind the first is not latched out, the seat's own
+# consume never re-fires, and a turn that lands in the same poll another was
+# consumed in is not missed), and re-announce every --reannounce polls while
+# anything still waits (default 15 polls = ~5 min at 20s). A failing probe is
+# announced as "degraded" only on the SECOND failure in a row: one failed
+# poll (a `ps` hiccup in the lineage walk) is not a broken watch.
+usage() {
+  [ -n "$1" ] && echo "maw-watch-inbox: $1" >&2
+  echo "usage: maw-watch-inbox <seat-name> [--once] [--interval SECS] [--reannounce POLLS]" >&2
+  exit 2
+}
+name=""; once=0; interval=20; reannounce=15
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --once) once=1 ;;
+    --interval|--reannounce)
+      [ "$#" -ge 2 ] || usage "$1 needs a value"
+      if [ "$1" = --interval ]; then interval="$2"; else reannounce="$2"; fi
+      shift ;;
+    -*) usage "unknown option $1" ;;
+    *) name="$1" ;;
+  esac
+  shift
+done
+[ -n "$name" ] || usage ""
+# A missing, non-numeric or zero interval makes `sleep` fail or return at once,
+# and the loop then polls flat out. Refuse it here.
+case "$interval" in
+  ''|*[!0-9.]*|*.*.*|.) usage "--interval must be a positive number of seconds, got '$interval'" ;;
+esac
+[ -n "$(printf '%s' "$interval" | tr -d '0.')" ] \
+  || usage "--interval must be a positive number of seconds, got '$interval'"
+case "$reannounce" in
+  ''|*[!0-9]*) usage "--reannounce must be a positive whole number of polls, got '$reannounce'" ;;
+esac
+[ "$reannounce" -gt 0 ] || usage "--reannounce must be a positive whole number of polls, got '$reannounce'"
+self="$0"
+while [ -L "$self" ]; do
+  link="$(readlink "$self")"
+  case "$link" in
+    /*) self="$link" ;;
+    *) self="$(dirname "$self")/$link" ;;
+  esac
+done
+root="$(cd "$(dirname "$self")/.." && pwd)"
+last=""; since=0; fails=0
+while true; do
+  out=$("$root/bin/maw-run" net.cli recv "$name" --check 2>/dev/null)
+  rc=$?
+  case "$rc" in
+    0)
+      fails=0; since=$((since + 1))
+      # `recv --check` ends its line with ` ids=<id,id,...>`: the turns that
+      # wait. Compare the ids, never the count text. A line without ids (an
+      # older net.cli) is compared whole, as one id.
+      case "$out" in
+        *" ids="*) ids=$(printf '%s' "${out##* ids=}" | tr ',' ' '); shown="${out% ids=*}" ;;
+        *) ids=$(printf '%s' "$out" | tr ' ,' '__'); shown="$out" ;;
+      esac
+      fresh=0
+      set -f  # split $ids on spaces only: an id is never a glob
+      for id in $ids; do
+        case " $last " in
+          *" $id "*) ;;
+          *) fresh=1 ;;
+        esac
+      done
+      set +f
+      last="$ids"
+      if [ "$fresh" = 1 ] || [ "$since" -ge "$reannounce" ]; then
+        echo "inbound: $shown. Drain with /maw:bridge-in"
+        since=0
+        [ "$once" = 1 ] && exit 0
+      fi ;;
+    3) last=""; since=0; fails=0 ;;
+    *)
+      fails=$((fails + 1))
+      if [ "$fails" = 2 ]; then
+        echo "inbound watch degraded (recv --check rc=$rc, twice in a row). Re-register, then re-arm"
+        [ "$once" = 1 ] && exit 0
+      fi ;;
+  esac
+  sleep "$interval"
+done

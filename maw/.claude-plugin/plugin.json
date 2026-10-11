@@ -1,0 +1,10 @@
+{
+  "name": "maw",
+  "version": "0.1.0",
+  "description": "Governance for Claude Code agent pairs: a transplantable substrate, an audited work line between an advisor and an executor session, and a merge gate armed once per session.",
+  "author": {
+    "name": "Derek Parent"
+  },
+  "homepage": "https://github.com/derekparent/maw-snapshot",
+  "license": "MIT"
+}

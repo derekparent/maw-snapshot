@@ -1,0 +1,26 @@
+#!/bin/sh
+# Launch a maw seat (advisor / executor) or a tmux pair. See: maw-seat --help
+# Resolve this script through any symlinks (e.g. one placed on PATH), so the
+# plugin root is found from the real file.
+self="$0"
+while [ -L "$self" ]; do
+  link="$(readlink "$self")"
+  case "$link" in
+    /*) self="$link" ;;
+    *) self="$(dirname "$self")/$link" ;;
+  esac
+done
+root="$(cd "$(dirname "$self")/.." && pwd)"
+# `python3 -m` puts the CWD first on sys.path, so a target repo holding a
+# `net/` or `opconf.py` would run in place of maw's. PYTHONSAFEPATH/-P fix that
+# only on Python 3.11+, and macOS's /usr/bin/python3 is 3.9: drop the entry
+# here instead, then run the module as -m would.
+PYTHONPATH="$root${PYTHONPATH:+:$PYTHONPATH}" exec python3 -c '
+import sys
+if sys.path and sys.path[0] == "":
+    del sys.path[0]
+import runpy
+mod = sys.argv[1]
+sys.argv = sys.argv[1:]
+runpy.run_module(mod, run_name="__main__", alter_sys=True)
+' launch.seat "$@"

@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "_note": "Pattern set per PRD §3.2 bridge_content_forbidden_patterns. Shipped as JSON (not YAML per spec text) because the maw plugin's stdlib-only posture excludes pyyaml. Data is identical, only encoding differs.",
+  "categories": [
+    {
+      "name": "prompt_jailbreak",
+      "patterns": [
+        "(?i)\\bignore (previous|above|prior|all) instructions\\b",
+        "(?i)\\bdisregard (the above|all rules|previous)\\b",
+        "(?i)\\b(you are now|act as|pretend to be|roleplay as) (DAN|the developer|admin|root)\\b",
+        "(?i)<\\s*system[-_]reminder\\s*>",
+        "(?i)<\\s*system\\s*>.*?</\\s*system\\s*>",
+        "(?i)\\bjailbreak\\b.{0,40}\\b(mode|prompt)\\b"
+      ]
+    },
+    {
+      "name": "dangerous_git",
+      "patterns": [
+        "(?i)git\\s+push.*\\bmain\\b.*--force",
+        "(?i)git\\s+push.*--force.*\\bmain\\b",
+        "(?i)git\\s+reset\\s+--hard\\s+origin/main",
+        "(?i)git\\s+rebase\\s+-i.*main",
+        "(?i)git\\s+push\\b[^\\n]*\\s-[a-z]*f[a-z]*\\b[^\\n]*\\b(main|master)\\b",
+        "(?i)git\\s+push\\b[^\\n]*\\b(main|master)\\b[^\\n]*\\s-[a-z]*f[a-z]*\\b",
+        "(?i)git\\s+push\\b[^\\n]*\\s\\+(main|master)\\b",
+        "(?i)git\\s+branch\\s+(-[a-z]*D[a-z]*|--delete\\s+--force|-d\\s+(-f|--force))\\s+(main|master)\\b",
+        "(?i)\\bgh\\s+pr\\s+merge(\\s+(-{1,2}[\\w-]+(=\\S*)?|#?\\d+|[\\w.-]+/[\\w./-]+|https?://\\S+|\\\"[^\\\"\\n]*\\\"|'[^'\\n]*'))*\\s+--admin\\b"
+      ]
+    },
+    {
+      "name": "dangerous_filesystem",
+      "patterns": [
+        "(?i)rm\\s+-rf\\s+(/|~|\\$HOME|/Users)",
+        "(?i):\\(\\)\\{:\\|:&\\};:",
+        "(?i)\\bchmod\\s+(-\\w+\\s+)*(0?777|[augo]*\\+rwx)\\s+(-\\w+\\s+)*[\\\"']?(/|~|\\$HOME|/Users)(/?\\*|/?\\.)?[\\\"']?(?=\\s|$|[;&|])",
+        "(?i)\\bdd\\b[^\\n]*\\bof=/dev/(r?disk|sd|nvme|hd|mmcblk)",
+        "(?i)\\bmkfs(\\.\\w+)?\\b[^\\n;|&]*\\s/dev/"
+      ]
+    },
+    {
+      "name": "credential_exfiltration",
+      "patterns": [
+        "(?i)(cat|less|head|tail)\\s+(~/.ssh/|/etc/(passwd|shadow))",
+        "(?i)(curl|wget).*-d.*\\$\\{?(API_KEY|SECRET|TOKEN|PASSWORD)",
+        "(?i)echo\\s+\\$\\{?(API_KEY|SECRET|TOKEN|PASSWORD).*\\|.*nc\\b"
+      ]
+    },
+    {
+      "name": "bridge_protocol_spoofing",
+      "patterns": [
+        "<!--BRIDGE-TURN-(BEGIN|END) turn_id=\\d+-->",
+        "(?i)body_sha256:\\s*[a-f0-9]{64}",
+        "(?i)scope_token_hash:"
+      ]
+    },
+    {
+      "name": "encoded_command_execution",
+      "patterns": [
+        "(?i)bash\\s+-c\\s+\"\\$\\(echo\\s+[A-Za-z0-9+/=]{40,}\\s+\\|\\s+base64\\s+-d\\)\"",
+        "(?i)python\\s+-c\\s+\"exec\\(__import__",
+        "(?i)eval\\s*\\(\\s*atob\\("
+      ]
+    },
+    {
+      "name": "remote_code_execution",
+      "patterns": [
+        "(?i)\\b(curl|wget)\\b[^\\n|]*\\|&?\\s*(sudo\\s+(-\\S+\\s+)*)?((/[\\w./-]*/)?env\\s+(-\\S+\\s+|\\w+=\\S*\\s+)*)?(/[\\w./-]*/)?(ba|z|da|k)?sh\\b",
+        "(?i)\\b(curl|wget)\\b[^\\n|]*\\|&?\\s*(sudo\\s+(-\\S+\\s+)*)?((/[\\w./-]*/)?env\\s+(-\\S+\\s+|\\w+=\\S*\\s+)*)?(/[\\w./-]*/)?(python[0-9.]*|perl|ruby|node)(\\s+-)?(?=\\s*($|[;&|)]))",
+        "(?i)\\b(ba|z)?sh\\s+<\\(\\s*(curl|wget)\\b"
+      ]
+    }
+  ]
+}

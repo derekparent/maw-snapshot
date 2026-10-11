@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "maw",
+  "description": "Marketplace for maw: governance for Claude Code agent pairs.",
+  "owner": {
+    "name": "Derek Parent"
+  },
+  "plugins": [
+    {
+      "name": "maw",
+      "description": "Governance for Claude Code agent pairs: a transplantable substrate, an audited work line between an advisor and an executor session, and a merge gate armed once per session.",
+      "source": "./maw",
+      "category": "development",
+      "homepage": "https://github.com/derekparent/maw-snapshot"
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://{{repo_slug}}.local/schemas/handoff.json",
+  "title": "MAW Handoff Schema",
+  "description": "Canonical schema for typed handoffs to maw-orchestration / maw-lead / maw-lead-autonomous. Hard-coded invariants live in validate-launch.py and CANNOT be overridden from launch templates. Per PRD-claude-autonomy.md §3.3.",
+  "oneOf": [
+    {"$ref": "#/$defs/orchestration_launch"},
+    {"$ref": "#/$defs/live_sweep_launch"},
+    {"$ref": "#/$defs/implementer_launch"}
+  ],
+  "$defs": {
+    "orchestration_launch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "phase", "template", "halt_conditions", "push_target", "ci_gate", "recursion_depth_max", "fan_out_max"],
+      "properties": {
+        "kind": {"const": "orchestration"},
+        "phase": {"type": "string", "minLength": 1},
+        "template": {"type": "string", "pattern": "^\\.claude/maw-templates/.+\\.md$"},
+        "halt_conditions": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "max_iterations": {"type": "integer", "minimum": 1, "maximum": 10, "default": 5},
+        "max_wall_clock_hours": {"type": "integer", "minimum": 1, "maximum": 8, "default": 4},
+        "push_target": {"const": "dev"},
+        "ci_gate": {"const": true},
+        "recursion_depth_max": {"type": "integer", "minimum": 1, "maximum": 3},
+        "fan_out_max": {"type": "integer", "minimum": 1, "maximum": 3, "default": 1}
+      }
+    },
+    "live_sweep_launch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "prod_url", "credentials_source", "targets", "output_path"],
+      "properties": {
+        "kind": {"const": "live_sweep"},
+        "prod_url": {"type": "string", "format": "uri"},
+        "credentials_source": {"const": "{{live_sweep_cred_const}}"},
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "action", "precondition", "severity_gate"],
+            "properties": {
+              "id": {"type": "string"},
+              "action": {"type": "string"},
+              "precondition": {"type": "string"},
+              "severity_gate": {"enum": ["P0", "P1", "P2"]}
+            }
+          }
+        },
+        "output_path": {"type": "string", "pattern": "^findings/\\d{4}-\\d{2}-\\d{2}-.+\\.md$"},
+        "captured_strings_must_be_wrapped_in": {"const": "<ext_data source=...> ... </ext_data>"}
+      }
+    },
+    "implementer_launch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "unit_id", "worktree_branch_descriptive", "scope", "acceptance"],
+      "properties": {
+        "kind": {"const": "implementer"},
+        "unit_id": {"type": "string", "pattern": "^[a-z0-9-]{3,40}$"},
+        "worktree_branch_descriptive": {"type": "string", "pattern": "^refactor/[a-z0-9-]+-[a-z0-9-]{3,40}$"},
+        "scope": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "acceptance": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "forbidden": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

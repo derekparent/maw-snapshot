@@ -1,0 +1,47 @@
+#!/bin/sh
+# post-merge — keep the live plugin pinned to main automatically.
+#
+# In the plugin-SOURCE repo, after a merge (e.g. The operator merges a PR to main), this
+# runs `repin.check sync`, which (1) fast-forwards the pinned worktree at
+# ~/.maw/plugin-main to origin/main, then (2) recopies that worktree's maw/ into
+# the cache version dir and rewrites the .maw-pinned-sha sentinel. The cache is a
+# REAL DIRECTORY COPY (a symlink would be removed by claude on the next session
+# start), refreshed by file copy — NEVER `claude plugin install`.
+#
+# No profile installs this into a target repo: it is placed in the plugin-source
+# repo by `repin.check hook --install`; the status command it names prints the runbook
+# pointer where that repo has one.
+# Self-locating + NO-OP unless this repo contains the maw plugin SOURCE
+# (maw/repin/): a target repo's merge does not own the pinned worktree. Never
+# fails the merge (always exits 0). The ff-only sync refuses LOUDLY if the pinned
+# worktree was dirtied — that surfaces as a printed warning, not a blocked merge.
+#
+# It acts ONLY in the main checkout, and only while that checkout is on the
+# default branch. .git/hooks is shared by every linked worktree, so without
+# this a trial merge in a throwaway review worktree, a seat worktree, or the
+# pinned worktree itself ran a deploy, with the repin code of whatever tree the
+# merge happened in. A pull of the default branch in the main checkout is the
+# one merge that means "main moved here"; every other deploy goes through
+# `repin.check sync` directly (the merge wrapper runs it).
+set -u
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+[ -f "$root/maw/repin/check.py" ] || exit 0   # not the plugin-source repo -> no-op
+
+# Main checkout: its git dir IS the common dir. A linked worktree's is
+# <common>/worktrees/<name>. Compared as physical paths (/tmp vs /private/tmp).
+git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null)" || exit 0
+common_dir="$(git rev-parse --git-common-dir 2>/dev/null)" || exit 0
+git_dir="$(cd "$git_dir" 2>/dev/null && pwd -P)" || exit 0
+common_dir="$(cd "$common_dir" 2>/dev/null && pwd -P)" || exit 0
+[ "$git_dir" = "$common_dir" ] || exit 0      # linked worktree -> no-op
+
+# On the default branch (a detached HEAD has no branch -> no-op).
+branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" || exit 0
+default="$(git symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null)" || default=""
+default="${default#refs/remotes/origin/}"
+[ -n "$default" ] || default="main"
+[ "$branch" = "$default" ] || exit 0
+
+PYTHONPATH="$root/maw" python3 -m repin.check sync || \
+  echo "post-merge: repin sync failed (pinned worktree may be dirty) — run: PYTHONPATH=\"$root/maw\" python3 -m repin.check status" >&2
+exit 0

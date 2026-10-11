@@ -1,0 +1,14 @@
+# maw phone-approval relay (refit R3b). Deploy is the operator's gate: `wrangler login`,
+# create the KV namespace, set the secret, pick the route. See relay/README.md.
+name = "maw-approval-relay"
+main = "worker.mjs"
+compatibility_date = "2026-09-01"
+# No per-version preview URLs: check_origin would refuse them anyway, and they
+# widen the surface for nothing.
+preview_urls = false
+
+[[kv_namespaces]]
+binding = "RELAY_KV"
+id = "REPLACE_WITH_THE_KV_NAMESPACE_ID_AT_DEPLOY"
+
+# RELAY_SECRET is a Worker secret: `wrangler secret put RELAY_SECRET`. Never here.

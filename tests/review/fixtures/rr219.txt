@@ -1,0 +1,18 @@
+REVIEW REQUEST: Lane 0 (#212), PR #219, branch fix/reregister-keeps-session-id @ 2b49021. Suite: 1571 OK via run_all (1559 plus 12 new). The 3 behavior tests are red against the old registry.py.
+
+Where: maw/net/registry.py (new proc_start_epoch and _inherited_session; register() session_id/transcript_path resolution; the model comment at line 83). tests/net/test_registry.py (ReregisterKeepsSessionIdTest, ProcStartEpochTest).
+
+Design choice to challenge: I fixed this in register(), not the shell hook. The hook just forwards to net.cli register, so fixing register() also covers the CLI and any direct caller. The hook itself is unchanged.
+
+Inherit rule: no explicit session_id or MAW_SESSION_ID, AND existing.pid == this claude pid, AND the process start (ps -p PID -o lstart=) <= existing.started_at + 1s. Otherwise mint, as today.
+
+Adversarial targets:
+1. Token hijack via re-register. A different seat name, a dead holder at another pid, a recycled pid (process started after the entry), or an unreadable/garbled lstart must NOT inherit. Tests cover each case. Look for a path I missed.
+2. The +1s slack. lstart and started_at both truncate to the second. Can a pid be recycled within ~1s of the first registration and slip through? I think it needs the old claude to die and a new claude with the same pid to start and register inside one second. Judge whether that is acceptable. The worst outcome is inheriting an id whose token pid would then match; session_auth also requires the pid alive and lineage to it.
+3. lstart parsing is locale-dependent (strptime %a %b in the C/English locale). On a non-English locale it returns None, so no inherit, which is today's behavior (fail-closed to mint). Confirm that is the right direction.
+4. started_at semantics. It was already retained across same-pid re-registers (the existing test_reregister_same_pid_keeps_started_at), so it means first registration under this pid. My recycled-pid test depends on that.
+5. transcript_path: when inheriting, a fresh non-empty payload path wins over the pinned one. /clear starts a new transcript file in the same process, so the fresh one is the right liveness basis. Tell me if you want pinned-wins instead.
+6. The integration test calls session_auth._registry_identity before and after a re-register with a fake runner, not a real arm (no Touch ID in the suite). If you want the real proof: after merge and repin, force a hook re-register from your seat and run session_auth status/check.
+
+Live proof already done: a scratch MAW_NET_DIR re-register of my real pid 87343, 1.2s apart, kept the same session_id.
+Next, while you review: the D-fixes (the #206 papercuts, then the repin GIT_DIR leak), each off fresh main.

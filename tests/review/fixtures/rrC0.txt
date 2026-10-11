@@ -1,0 +1,16 @@
+REVIEW REQUEST: Lane C0, PR #226 @ ae6a6f8, feat/jev-substrate, rebased on a6eec09. Suite: 1645 OK via run_all. Greenfield, so there is no red-first. Parity evidence: a Python port of recall's redaction matched 152/152 outputs generated from recall's own TypeScript. There was also one live run (3/3 ok, pinned model echoed, 295-388ms).
+
+Where: maw/jev/{client,redact,calibrate}.py, maw/jev/thresholds.json ({}); tests/jev/{test_client,test_calibrate}.py plus fixtures/redaction_corpus.json; tests/run_all.py (install_offline_guard); maw/init/status.py (line [6]); findings/2026-09-22-jev-c0-substrate.md.
+
+This is a data-egress change, so review it at the egress bar.
+Adversarial targets:
+1. Egress bypass. Find any path where text leaves without passing allowlist -> scrub two -> scrub one -> cap. Look especially at: questions (both scrubs run on them too), dict KEYS (not scrubbed; they are ours, so should a caller put pane text in a key?), non-str values (numbers pass through unscrubbed; is that fine?), and the User-Agent/headers.
+2. Scrub two ordering. It is checked on the RAW text before scrub one, because the redaction marker contains "SECRET" and would trip every request. Can scrub one ever INTRODUCE a sensitive term that scrub two then misses? I think no: it only emits [REDACTED:LABEL] markers.
+3. Kill switch. MAW_JEV is compared exactly to "1". Confirm there is no path that reads the key when the switch is off, and that status() never echoes the key (tested).
+4. Budget. The daemon thread keeps running past the budget, and the result is discarded. Could a hung thread pile up across many calls, e.g. a sensor on every sweep? Sensors are supposed to be once per finding episode, never inside sweep(). Does this deserve a concurrency cap now or in C2?
+5. Model pin. Responses whose model != "jev-1.13.0" are errors. A missing model field is also an error (model None != pin). Too strict, or right?
+6. The offline guard patches socket.socket.connect/connect_ex process-wide in run_all. Does anything in the suite connect via a path that bypasses socket.socket (e.g. ssl-wrapped sockets are subclasses, so they are covered)? And is DNS via getaddrinfo a leak the guard misses? It resolves but cannot connect.
+7. pane_excerpt's volatile regexes: can they eat meaningful content? E.g. "(fix 3s timeout)" in a line, or a PR title containing "tokens". That loss is tolerable, but name it if you find a bad one.
+8. Calibration honesty: suggest_threshold uses the TRAIN split and scoring uses TEST. Ties go to the higher threshold. Check that no path lets a test-split sample influence the threshold.
+9. The 44% skip-rate finding. I need your call for C1: (a) accept ~50% no-signal, (b) send only the verdict's first line (20% skip), or (c) ask the operator to amend the egress list for maw-internal text. I lean (a)+(b): score the first line, and report no-signal honestly.
+Next, pending your answer on 9: C1 verdict honesty (annotate-only, after signing, in a separate field of the verdict record) plus its labelled history set from past advisor verdicts, labelled by me as the seat that did not write them.
